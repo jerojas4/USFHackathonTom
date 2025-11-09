@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tomi-gotchi</title>
+    <!-- 1. Include Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // 2. Configure Tailwind
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                    keyframes: {
+                        // Pet idle/happy animation
+                        pace: {
+                            '0%': { transform: 'translateX(-30px) scaleX(1)' },
+                            '45%': { transform: 'translateX(30px) scaleX(1)' },
+                            '50%': { transform: 'translateX(30px) scaleX(-1)' },
+                            '95%': { transform: 'translateX(-30px) scaleX(-1)' },
+                            '100%': { transform: 'translateX(-30px) scaleX(1)' },
+                        },
+                        // Hungry/Thirsty animation
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' }, '25%': { transform: 'translateX(-5px)' },
+                            '50%': { transform: 'translateX(5px)' }, '75%': { transform: 'translateX(-5px)' },
+                        },
+                        // Tired animation
+                        sway: { '0%, 100%': { transform: 'rotate(-5deg)' }, '50%': { transform: 'rotate(5deg)' } },
+                        // Sad animation
+                        droop: { '0%, 100%': { transform: 'translateY(3px) scaleY(0.95)' }, '50%': { transform: 'translateY(0) scaleY(1)' } },
+                        // Hurt animation
+                        flashRed: { '0%, 100%': { filter: 'none' }, '50%': { filter: 'brightness(2) sepia(1) hue-rotate(-50deg) saturate(5)' } },
+                        // Sick animation
+                        flashGreen: { '0%, 100%': { filter: 'none' }, '50%': { filter: 'brightness(1.5) sepia(1) hue-rotate(50deg) saturate(5)' } }
+                    },
+                    animation: {
+                        'idle-walk': 'pace 8s ease-in-out infinite',
+                        'hungry-shake': 'shake 0.5s linear infinite',
+                        'tired-sway': 'sway 3s ease-in-out infinite',
+                        'sad-droop': 'droop 2s ease-in-out infinite',
+                        'hurt-flash': 'flashRed 0.5s linear infinite',
+                        'sick-wobble': 'flashGreen 1s linear infinite, sway 1s ease-in-out infinite',
+                    }
+                },
+            },
+        };
+    </script>
+    <!-- 3. Import Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- 4. Basic Styles -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom progress bar styles */
+        progress {
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+            border: none; height: 1.25rem; border-radius: 0.5rem; overflow: hidden;
+        }
+        progress::-webkit-progress-bar { background-color: #e5e7eb; }
+        progress::-webkit-progress-value {
+            background-color: var(--progress-color, #3b82f6);
+            transition: background-color 0.3s, width 0.3s;
+        }
+        progress::-moz-progress-bar {
+            background-color: var(--progress-color, #3b82f6);
+            transition: background-color 0.3s, width 0.3s;
+        }
+        /* Utility class */
+        .hidden { display: none; }
+        /* Style for selected icon in the menu */
+        .icon-selected {
+            background-color: #dbeafe; /* blue-100 */
+            border-radius: 0.375rem; /* rounded-md */
+        }
+        /* Style for selected sub-menu item */
+        .button-selected {
+            outline: 2px solid #3b82f6; /* outline-blue-500 */
+            outline-offset: 2px;
+        }
+        /* Style for selected button in confirm modal */
+        .confirm-selected {
+            outline: 2px solid #3b82f6; /* outline-blue-500 */
+            outline-offset: 2px;
+        }
+        /* Style for selected move in move-learn modal */
+        .move-selected {
+            border-color: #3b82f6; /* border-blue-500 */
+            box-shadow: 0 0 0 2px #bfdbfe; /* shadow-blue-200 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Main Game UI Container -->
+    <div id="game-container" class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-auto">
+        
+        <!-- Header: Pet Name and Level -->
+        <div class="text-center mb-4">
+            <h1 id="pet-name" class="text-3xl font-bold text-gray-800">Tomi</h1>
+            <p id="pet-level" class="text-sm font-medium text-gray-500">Level 1</p>
+        </div>
+
+        <!-- Pet Visual Display Box -->
+        <div class="rounded-lg p-6 mb-4 h-48 relative overflow-hidden" style="background: linear-gradient(to bottom, #a0e9ff 0%, #a0e9ff 70%, #76d753 70%, #76d753 100%);">
+            
+            <!-- Icon Bar (actions menu) -->
+            <div id="icon-bar" class="hidden absolute top-1 left-1 right-1 h-10 bg-black/10 backdrop-blur-sm rounded-lg flex justify-around items-center p-1 z-10">
+                <!-- Icons will be populated by JS -->
+            </div>
+
+            <!-- Pixel Art Pet -->
+            <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-full flex justify-center items-end h-full">
+                <div id="pet-svg-container" class="animate-idle-walk mb-[-4px]">
+                    <!-- This is an SVG to create the pixel art pet -->
+                    <svg width="64" height="64" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" style="image-rendering: pixelated; shape-rendering: crispEdges;">
+                        <g id="pet-body">
+                            <!-- Body color, controlled by JS -->
+                            <rect id="pet-body-color" x="5" y="6" width="6" height="6" fill="#3b82f6" />
+                            <!-- Legs -->
+                            <rect x="5" y="12" width="2" height="2" fill="#222" />
+                            <rect x="9" y="12" width="2" height="2" fill="#222" />
+                            <!-- Eyes -->
+                            <rect x="6" y="7" width="1" height="1" fill="#fff" />
+                            <rect x="9" y="7" width="1" height="1" fill="#fff" />
+                            <!-- Mouth -->
+                            <rect x="7" y="9" width="2" height="1" fill="#fff" />
+                        </g>
+                    </svg>
+                </div>
+            </div>
+            <!-- Skull for 'dead' state -->
+            <div id="pet-dead-visual" class="text-7xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 hidden">💀</div>
+        </div>
+
+        <!-- Message Log -->
+        <div id="message-log" class="text-center text-sm font-medium text-gray-700 mb-4 h-6">
+            Welcome!
+        </div>
+
+        <!-- Experience Display -->
+        <div class="text-center text-sm font-medium text-blue-600 mb-6">
+            Experience: <span id="xp-value">0</span> / <span id="xp-next-value">50</span> XP
+        </div>
+
+        <!-- Tamagotchi Control Buttons -->
+        <div id="control-buttons" class="mt-6 border-t pt-4 flex justify-around items-center">
+            <button id="move-btn" class="p-4 bg-gray-600 text-white rounded-full font-medium shadow hover:bg-gray-700 transition w-24">Move</button>
+            <button id="select-btn" class="p-4 bg-blue-500 text-white rounded-full font-medium shadow hover:bg-blue-600 transition w-24">Select</button>
+            <button id="back-btn" class="p-4 bg-gray-400 text-white rounded-full font-medium shadow hover:bg-gray-500 transition w-24">Back</button>
+        </div>
+        <p class="text-xs text-gray-500 text-center mt-3">Hint: Press 'Move' to open the action menu!</p>
+    </div>
+
+    <!-- BATTLE UI (Hidden by default) -->
+    <div id="battle-container" class="hidden bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-auto">
+        <!-- Battle Title -->
+        <div class="text-center mb-4"><h1 class="text-3xl font-bold text-red-600 animate-pulse">BATTLE!</h1></div>
+        <!-- Battle Log -->
+        <div id="battle-log" class="text-center text-sm font-medium text-gray-700 mb-4 h-6">A wild enemy appears!</div>
+        <!-- Enemy Info -->
+        <div class="bg-gray-100 rounded-lg p-6 mb-4">
+            <div class="flex justify-between items-center">
+                <span id="enemy-name" class="text-xl font-bold text-gray-800">Grumpy Slime</span>
+                <span id="enemy-visual" class="text-5xl">👿</span>
+            </div>
+            <div class="flex justify-between mb-1 mt-2">
+                <span class="text-sm font-medium text-gray-700">HP</span>
+                <span id="enemy-hp-value" class="text-sm font-medium text-gray-700">50/50</span>
+            </div>
+            <progress id="enemy-hp-bar" max="50" value="50" class="w-full"></progress>
+        </div>
+        <!-- Player Info -->
+        <div class="bg-blue-50 rounded-lg p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <span id="player-name" class="text-xl font-bold text-blue-800">Tomi</span>
+                <span id="player-visual" class="text-5xl">❤️</span>
+            </div>
+            <div class="flex justify-between mb-1 mt-2">
+                <span class="text-sm font-medium text-gray-700">HP</span>
+                <span id="player-hp-value" class="text-sm font-medium text-gray-700">100/100</span>
+            </div>
+            <progress id="player-hp-bar" max="100" value="100" class="w-full"></progress>
+        </div>
+        <!-- Battle Moves -->
+        <div id="battle-moves-container" class="grid grid-cols-2 gap-2 mb-4">
+            <!-- Battle move buttons will be populated by JS -->
+        </div>
+        <!-- Flee Button -->
+        <button id="flee-btn" class="w-full p-3 bg-gray-500 text-white rounded-lg font-medium shadow hover:bg-gray-600 transition">Flee</button>
+    </div>
+
+    <!-- Status Modal (Hidden by default) -->
+    <div id="status-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-auto">
+            <h2 class="text-lg font-bold text-center text-gray-800">Status & Info</h2>
+            <p id="status-modal-message" class="text-center text-gray-700 my-4">Tomi feels great!</p>
+            
+            <h3 class="font-bold text-center text-gray-800 mt-4">Your Moves</h3>
+            <div id="moves-list-modal" class="flex flex-wrap justify-center gap-2 mt-2 min-h-[30px] bg-gray-50 p-2 rounded-lg">
+                <!-- Moves list will be populated by JS -->
+            </div>
+            
+            <button id="reset-btn-modal" class="mt-6 w-full p-2 bg-red-100 text-red-700 text-xs rounded-lg font-medium hover:bg-red-200 transition">Reset Game</button>
+            <button id="close-modal-btn" class="mt-2 w-full p-3 bg-gray-500 text-white rounded-lg font-medium shadow hover:bg-gray-600 transition">Close</button>
+        </div>
+    </div>
+    
+    <!-- Feed Modal (Hidden by default) -->
+    <div id="feed-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs mx-auto text-center">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">What to eat?</h2>
+            <div class="flex justify-around">
+                <button id="feed-food-btn" class="p-4 bg-green-100 text-green-800 rounded-lg font-medium text-center">
+                    <div>🍲</div><div>Food</div>
+                </button>
+                <button id="feed-snack-btn" class="p-4 bg-yellow-100 text-yellow-800 rounded-lg font-medium text-center">
+                    <div>🍰</div><div>Snack</div>
+                </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-4">Use 'Move' to switch, 'Select' to choose, 'Back' to cancel.</p>
+        </div>
+    </div>
+    
+    <!-- Mini-Game Modal (Hidden by default) -->
+    <div id="game-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs mx-auto text-center">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">Higher or Lower?</h2>
+            <p class="text-sm text-gray-600 mb-4">The number is:</p>
+            <div id="game-number-text" class="text-7xl font-bold text-blue-600 mb-6">5</div>
+            <div class="flex justify-around mb-4">
+                <button id="game-higher-btn" class="p-4 bg-blue-100 text-blue-800 rounded-lg font-medium text-center">
+                    <div>🔼</div><div>Higher</div>
+                </button>
+                <button id="game-lower-btn" class="p-4 bg-red-100 text-red-800 rounded-lg font-medium text-center">
+                    <div>🔽</div><div>Lower</div>
+                </button>
+            </div>
+            <p id="game-result-text" class="text-sm font-medium h-5 mb-2"></p>
+            <p class="text-xs text-gray-500">Use 'Move' to switch, 'Select' to guess, 'Back' to quit.</p>
+        </div>
+    </div>
+
+    <!-- Confirm Reset Modal (Hidden by default) -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs mx-auto text-center">
+            <h2 class="text-lg font-bold text-gray-800 mb-2">Are you sure?</h2>
+            <p class="text-sm text-gray-600 mb-6">This will delete your pet forever.</p>
+            <div class="flex justify-around">
+                <button id="confirm-yes-btn" class="p-3 bg-red-500 text-white rounded-lg font-medium w-24">Yes</button>
+                <button id="confirm-no-btn" class="p-3 bg-gray-300 text-gray-800 rounded-lg font-medium w-24">No</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-4">Use 'Move' to switch, 'Select' to choose.</p>
+        </div>
+    </div>
+
+    <!-- NEW: Move Learn Modal (Hidden by default) -->
+    <div id="move-learn-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-auto text-center">
+            <h2 class="text-lg font-bold text-gray-800 mb-2">Learned New Move!</h2>
+            <p class="text-sm text-gray-600 mb-4">Tomi wants to learn <strong id="new-move-name">New Move</strong>, but already knows 4 moves. Which move should be forgotten?</p>
+            
+            <!-- List of current moves -->
+            <div id="move-learn-list" class="space-y-2 mb-4">
+                <!-- Moves to forget will be populated by JS -->
+            </div>
+            
+            <!-- The new move -->
+            <div id="new-move-option" class="p-3 border-2 border-transparent rounded-lg cursor-pointer">
+                <h3 class="font-bold text-lg text-blue-600">Don't learn <span id="new-move-name-2">New Move</span></h3>
+                <p class="text-xs text-gray-500">Keep your current moves.</p>
+            </div>
+            
+            <p class="text-xs text-gray-500 mt-4">Use 'Move' to cycle, 'Select' to confirm.</p>
+        </div>
+    </div>
+
+
+    <!--
+      START of combined JavaScript
+    -->
+    <script type="module">
+        // --- Constants ---
+        const SAVE_KEY = "tomi_save_game";
+        // SLOWED DOWN RATES (10x slower)
+        const HUNGER_RATE = 0.001;
+        const ENERGY_RATE = 0.0005;
+        const HAPPINESS_RATE = 0.0003;
+        const PASSIVE_XP_RATE = 0.02; // XP gained per second just for living
+        const SICK_CHANCE_BASE = 0.001;
+        const SICK_STAT_DRAIN = 0.05;
+        const LEVEL_UP_XP_BASE = 50;
+        const BATTLE_CHANCE = 0.3; // <-- CHANGED: Battle chance set to 30%
+        const BATTLE_XP_REWARD = 20;
+        const MOVE_POOL = [
+            { name: "Bite", power: 10, type: "attack" }, { name: "Scratch", power: 8, type: "attack" },
+            { name: "Pounce", power: 12, type: "attack" }, { name: "Grumble", power: 5, type: "attack" },
+            { name: "Quick Heal", power: 10, type: "heal" }, { name: "Nuisance", power: 3, type: "attack" },
+            { name: "Dash", power: 7, type: "attack" }, { name: "Rest", power: 20, type: "heal" },
+            { name: "Growl", power: 9, type: "attack" },
+        ];
+        // Color map for pet's body
+        const COLOR_MAP = {
+            'red-500': '#ef4444', 'yellow-500': '#eab308', 'orange-500': '#f97316',
+            'green-500': '#22c55e', 'blue-500': '#3b82f6', 'indigo-500': '#6366f1',
+            'purple-500': '#a855f7', 'gray-500': '#6b7280',
+        };
+
+        // Icon Menu definitions
+        const MENU_ICONS = {
+            'feed': '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>', // Bowl
+            'sleep': '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>',
+            'play': '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+            'status': '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.79 4 4s-1.79 4-4 4c-1.742 0-3.223-.835-3.772-2H21m-18 2H3m18 0h-1.228M5.172 7A4.01 4.01 0 015 7m0 10a4 4 0 01.172-1M5 7c-.058.33-.11.66-.172 1"></path></svg>', // Status
+            'medicine': '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>', // Sick Med
+            'heal': '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>', // Heal Med
+            'discipline': '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>', // Whistle/Discipline
+        };
+        // The order of actions in the menu
+        const MENU_ACTIONS = ['feed', 'sleep', 'play', 'status', 'medicine', 'heal', 'discipline'];
+
+        // --- Global Variables ---
+        let pet; // The pet object
+        let enemy = null; // The enemy object (during battle)
+        let menuActive = false; // Is the icon bar open?
+        let selectedIconIndex = 0; // Which icon is highlighted
+        let submenuActive = null; // 'feed', 'game', 'reset', or 'movelearn'
+        let subMenuIndex = 0; // Index for sub-menus
+        let pendingNewMove = null; // Holds the move to be learned
+
+        // --- DOM Elements ---
+        // A single object to hold all HTML element references
+        const ui = {
+            gameContainer: document.getElementById('game-container'),
+            petName: document.getElementById('pet-name'),
+            petLevel: document.getElementById('pet-level'),
+            petSvgContainer: document.getElementById('pet-svg-container'),
+            petBodyColor: document.getElementById('pet-body-color'),
+            petDeadVisual: document.getElementById('pet-dead-visual'),
+            messageLog: document.getElementById('message-log'),
+            xp: document.getElementById('xp-value'),
+            xpNext: document.getElementById('xp-next-value'),
+            
+            iconBar: document.getElementById('icon-bar'),
+            icons: [],
+            
+            buttons: {
+                move: document.getElementById('move-btn'),
+                select: document.getElementById('select-btn'),
+                back: document.getElementById('back-btn'),
+            },
+            
+            statusModal: {
+                container: document.getElementById('status-modal'),
+                message: document.getElementById('status-modal-message'),
+                movesList: document.getElementById('moves-list-modal'),
+                resetBtn: document.getElementById('reset-btn-modal'),
+                closeBtn: document.getElementById('close-modal-btn'),
+            },
+
+            feedModal: {
+                container: document.getElementById('feed-modal'),
+                foodBtn: document.getElementById('feed-food-btn'),
+                snackBtn: document.getElementById('feed-snack-btn'),
+            },
+
+            gameModal: {
+                container: document.getElementById('game-modal'),
+                numberText: document.getElementById('game-number-text'),
+                higherBtn: document.getElementById('game-higher-btn'),
+                lowerBtn: document.getElementById('game-lower-btn'),
+                resultText: document.getElementById('game-result-text'),
+            },
+            
+            confirmModal: {
+                container: document.getElementById('confirm-modal'),
+                yesBtn: document.getElementById('confirm-yes-btn'),
+                noBtn: document.getElementById('confirm-no-btn'),
+            },
+
+            // NEW: Move Learn Modal UI
+            moveLearnModal: {
+                container: document.getElementById('move-learn-modal'),
+                newMoveName: document.getElementById('new-move-name'),
+                newMoveName2: document.getElementById('new-move-name-2'),
+                moveList: document.getElementById('move-learn-list'),
+                newMoveOption: document.getElementById('new-move-option'),
+                moveElements: [], // Will be populated with the 4 old moves
+            },
+
+            battle: {
+                container: document.getElementById('battle-container'),
+                log: document.getElementById('battle-log'),
+                enemyName: document.getElementById('enemy-name'),
+                enemyVisual: document.getElementById('enemy-visual'),
+                enemyHpBar: document.getElementById('enemy-hp-bar'),
+                enemyHpValue: document.getElementById('enemy-hp-value'),
+                playerName: document.getElementById('player-name'),
+                playerVisual: document.getElementById('player-visual'),
+                playerHpBar: document.getElementById('player-hp-bar'),
+                playerHpValue: document.getElementById('player-hp-value'),
+                movesContainer: document.getElementById('battle-moves-container'),
+                fleeBtn: document.getElementById('flee-btn'),
+            }
+        };
+
+        // --- Tomi Class ---
+        // The main blueprint for the pet
+        class Tomi {
+            constructor(name) {
+                this.name = name;
+                this.hunger = 50; this.energy = 50; this.happiness = 50;
+                this.experience = 0; this.level = 1; this.is_sick = false;
+                this.last_updated_time = Date.now();
+                this.isDead = false; this.isInBattle = false;
+                this.maxHP = 100; this.currentHP = 100;
+                this.moves = [MOVE_POOL[0]]; // Start with "Bite"
+                this.lastLevelUpCheck = 0; 
+                
+                this.isRefusing = false;
+                this.inMiniGame = false;
+                this.gameNumber = 0;
+                this.secretNumber = 0;
+            }
+
+            static fromData(data) {
+                const pet = new Tomi(data.name || 'Tomi');
+                Object.assign(pet, data);
+                if (!pet.lastLevelUpCheck) {
+                    pet.lastLevelUpCheck = pet.level - 1;
+                }
+                return pet;
+            }
+            
+            _limitStat(value) { return Math.max(0, Math.min(100, value)); }
+
+            logMessage(msg) {
+                console.log(msg);
+                ui.messageLog.textContent = msg;
+            }
+
+            // --- Player Actions ---
+            feed_food() {
+                if (this.isDead || this.isInBattle) return;
+                if (this.hunger > 60 && Math.random() < 0.5) {
+                    this.logMessage(`${this.name} refused to eat!`);
+                    this.happiness = this._limitStat(this.happiness - 5);
+                    this.isRefusing = true;
+                    return;
+                }
+                this.hunger = this._limitStat(this.hunger + 40);
+                this.logMessage(`Yum! ${this.name} ate a full meal.`);
+                this.experience += 5;
+                this.isRefusing = false;
+            }
+            
+            feed_snack() {
+                if (this.isDead || this.isInBattle) return;
+                this.hunger = this._limitStat(this.hunger + 10);
+                this.happiness = this._limitStat(this.happiness + 20);
+                this.logMessage(`Yummy! A tasty snack!`);
+                this.experience += 2;
+                this.isRefusing = false;
+            }
+
+            discipline() {
+                if (this.isDead || this.isInBattle) return;
+                if (this.isRefusing) {
+                    this.logMessage(`${this.name} learned its lesson!`);
+                    this.happiness = this._limitStat(this.happiness + 5);
+                    this.isRefusing = false;
+                } else {
+                    this.logMessage(`You disciplined ${this.name} for no reason!`);
+                    this.happiness = this._limitStat(this.happiness - 20);
+                }
+            }
+            // Helper to keep stats between 0 and 100
+            _limitStat(value) { return Math.max(0, Math.min(100, value)); }
+
+            // Show a message in the game's message log
+            logMessage(msg) {
+                console.log(msg); // Also log to browser console for debugging
+                ui.messageLog.textContent = msg;
+            }
+
+            // --- Player Actions ---
+            feed_food() {
+                if (this.isDead || this.isInBattle) return;
+                if (this.hunger > 60 && Math.random() < 0.5) {
+                    this.logMessage(`${this.name} refused to eat!`);
+                    this.happiness = this._limitStat(this.happiness - 5);
+                    this.isRefusing = true;
+                    return;
+                }
+                this.hunger = this._limitStat(this.hunger + 40);
+                this.logMessage(`Yum! ${this.name} ate a full meal.`);
+                this.experience += 5;
+                this.isRefusing = false;
+            }
+            
+            feed_snack() {
+                if (this.isDead || this.isInBattle) return;
+                this.hunger = this._limitStat(this.hunger + 10);
+                this.happiness = this._limitStat(this.happiness + 20);
+                this.logMessage(`Yummy! A tasty snack!`);
+                this.experience += 2;
+                this.isRefusing = false;
+            }
+
+            discipline() {
+                if (this.isDead || this.isInBattle) return;
+                if (this.isRefusing) {
+                    this.logMessage(`${this.name} learned its lesson!`);
+                    this.happiness = this._limitStat(this.happiness + 5);
+                    this.isRefusing = false;
+                } else {
+                    this.logMessage(`You disciplined ${this.name} for no reason!`);
+                    this.happiness = this._limitStat(this.happiness - 20);
+                }
+            }
+
+            sleep() {
+                if (this.isDead || this.isInBattle) return;
+                this.energy = 100;
+                this.hunger = this._limitStat(this.hunger - 10);
+                this.logMessage(`${this.name} had a great sleep.`);
+                this.currentHP = Math.min(this.maxHP, this.currentHP + 20);
+                this.experience += 10;
+                this.isRefusing = false;
+            }
+
+            startMiniGame() {
+                if (this.isDead || this.isInBattle) return;
+                if (this.energy < 20) {
+                    this.logMessage(`${this.name} is too tired to play.`);
+                    return false;
+                }
+                this.inMiniGame = true;
+                this.gameNumber = Math.ceil(Math.random() * 9);
+                this.secretNumber = Math.ceil(Math.random() * 9);
+                ui.gameModal.numberText.textContent = this.gameNumber;
+                ui.gameModal.resultText.textContent = "";
+                this.isRefusing = false;
+                return true;
+            }
+
+            makeGuess(guess) {
+                if (!this.inMiniGame) return; 
+                const isHigher = this.secretNumber > this.gameNumber;
+                const isLower = this.secretNumber < this.gameNumber;
+                const isSame = this.secretNumber === this.gameNumber;
+                let didWin = false;
+                if (guess === 'higher' && (isHigher || isSame)) didWin = true;
+                if (guess === 'lower' && (isLower || isSame)) didWin = true;
+                
+                this.inMiniGame = false;
+
+                if (didWin) {
+                    ui.gameModal.resultText.textContent = `You win! It was ${this.secretNumber}.`;
+                    this.endMiniGame(true);
+                } else {
+                    ui.gameModal.resultText.textContent = `You lose! It was ${this.secretNumber}.`;
+                    this.endMiniGame(false);
+                }
+            }
+
+            endMiniGame(didWin) {
+                this.energy = this._limitStat(this.energy - 10);
+                if (didWin) {
+                    this.logMessage(`You won the game! So fun!`);
+                    this.happiness = this._limitStat(this.happiness + 30);
+                    this.experience += 15;
+                } else {
+                    this.logMessage(`You lost the game...`);
+                    this.happiness = this._limitStat(this.happiness + 5);
+                }
+                setTimeout(() => {
+                    if (submenuActive === 'game') {
+                        submenuActive = null;
+                        ui.gameModal.container.classList.add('hidden');
+                        closeMenu();
+                    }
+                }, 1500);
+                
+                // NEW: Check for a random battle after playing
+                checkRandomBattle();
+            }
+            
+            checkLevelUp() {
+                const xpToNextLevel = LEVEL_UP_XP_BASE * this.level;
+                if (this.experience >= xpToNextLevel) {
+                    this.level++;
+                    this.experience -= xpToNextLevel;
+                    this.maxHP += 10; this.currentHP = this.maxHP;
+                    this.logMessage(`🌟 LEVEL UP! ${this.name} is now Level ${this.level}! 🌟`);
+
+                    // NEW: Check if we should learn a move (every 5 levels)
+                    if (this.level % 5 === 0 && this.level > this.lastLevelUpCheck) {
+                        this.lastLevelUpCheck = this.level; // Mark this level as checked
+                        const newMove = this.learnRandomMove();
+                        if (newMove) {
+                            if (this.moves.length <= 4) {
+                                this.moves.push(newMove);
+                                this.logMessage(`Learned new move: ${newMove.name}!`);
+                            } else {
+                                // Too many moves! Open the "forget move" modal
+                                pendingNewMove = newMove;
+                                openMoveLearnModal(newMove);
+                            }
+                        }
+                    }
+                    this.checkLevelUp(); // Check again for multi-level up
+                }
+            }
+
+            learnRandomMove() {
+                const unlearnedMoves = MOVE_POOL.filter(poolMove => 
+                    !this.moves.some(petMove => petMove.name === poolMove.name)
+                );
+                if (unlearnedMoves.length > 0) {
+                    const newMove = unlearnedMoves[Math.floor(Math.random() * unlearnedMoves.length)];
+                    return newMove;
+                }
+                return null;
+            }
+            
+            // NEW: Function to handle replacing a move
+            replaceMove(indexToForget, newMove) {
+                const forgottenMove = this.moves[indexToForget];
+                this.moves[indexToForget] = newMove;
+                this.logMessage(`Forgot ${forgottenMove.name} and learned ${newMove.name}!`);
+            }
+
+            administer_medicine() {
+                if (this.isDead || this.isInBattle) return;
+                if (this.is_sick) {
+                    this.is_sick = false;
+                    this.happiness = this._limitStat(this.happiness + 10);
+                    this.logMessage(`${this.name} feels much better!`);
+                } else {
+                    this.happiness = this._limitStat(this.happiness - 5);
+                    this.logMessage(`${this.name} wasn't sick!`);
+                }
+                this.isRefusing = false;
+            }
+
+            administer_heal_med() {
+                if (this.isDead || this.isInBattle) return;
+                if (this.currentHP >= this.maxHP) {
+                    this.logMessage(`${this.name} is already at full HP!`); return;
+                }
+                const healAmount = 30;
+                this.currentHP = Math.min(this.maxHP, this.currentHP + healAmount);
+                this.happiness = this._limitStat(this.happiness - 5);
+                this.hunger = this._limitStat(this.hunger - 5);
+                this.logMessage(`You used a Heal Med. Restored ${healAmount} HP!`);
+                this.isRefusing = false;
+            }
+
+            check_status() {
+                if (this.isDead || this.isInBattle) return;
+                let msg = "";
+                if (this.is_sick) msg = `${this.name} is sick! It needs medicine!`;
+                else if (this.currentHP < 30) msg = `${this.name} is very hurt! Use a Heal Med!`;
+                else if (this.hunger < 30) msg = `${this.name} is starving! Feed it!`;
+                else if (this.happiness < 30) msg = `${this.name} looks lonely. Play with it!`;
+                else if (this.energy < 30) msg = `${this.name} is exhausted... time for sleep.`;
+                else msg = `${this.name} feels great! (HP: ${Math.floor(this.currentHP)}/${this.maxHP})`;
+
+                ui.statusModal.message.textContent = msg;
+                ui.statusModal.movesList.innerHTML = '';
+                if (this.moves.length === 0) {
+                    ui.statusModal.movesList.innerHTML = `<span class="italic text-gray-500">Level up to learn moves!</span>`;
+                }
+                this.moves.forEach(move => {
+                    const moveType = move.type === 'heal' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800';
+                    ui.statusModal.movesList.innerHTML += `<span class="px-2 py-1 rounded-md text-sm font-medium ${moveType}">${move.name} (${move.power})</span>`;
+                });
+                ui.statusModal.container.classList.remove('hidden');
+            }
+            
+            update_state() {
+                if (this.isDead || this.isInBattle) return;
+                const current_time = Date.now();
+                const time_elapsed = (current_time - this.last_updated_time) / 1000;
+                if (time_elapsed < 1) return;
+
+                this.hunger = this._limitStat(this.hunger - (time_elapsed * HUNGER_RATE));
+                this.energy = this._limitStat(this.energy - (time_elapsed * ENERGY_RATE));
+                this.happiness = this._limitStat(this.happiness - (time_elapsed * HAPPINESS_RATE));
+                
+                this.experience += time_elapsed * (PASSIVE_XP_RATE * this.level);
+                this.checkLevelUp();
+
+                if (this.hunger > 50 && this.currentHP < this.maxHP) {
+                    this.currentHP = Math.min(this.maxHP, this.currentHP + (time_elapsed * 0.1));
+                }
+                
+                if (!this.is_sick) {
+                    let sick_chance = 0;
+                    if (this.hunger < 10) sick_chance += SICK_CHANCE_BASE * time_elapsed;
+                    if (Math.random() < sick_chance) {
+                        this.is_sick = true;
+                        this.logMessage(`Oh no! ${this.name} is sick!`);
+                    }
+                }
+                if (this.is_sick) {
+                    this.happiness = this._limitStat(this.happiness - (time_elapsed * SICK_STAT_DRAIN));
+                    this.currentHP = Math.max(0, this.currentHP - (time_elapsed * SICK_STAT_DRAIN));
+                }
+                
+                if ((this.hunger === 0 || this.currentHP === 0) && !this.isDead) {
+                    this.isDead = true;
+                    this.logMessage(`Game Over. ${this.name} was neglected.`);
+                }
+                
+                this.last_updated_time = current_time;
+            }
+
+            update_display() {
+                if (this.isInBattle) return;
+                ui.petName.textContent = this.name;
+                ui.petLevel.textContent = `Level ${this.level}`;
+                ui.xp.textContent = Math.floor(this.experience);
+                ui.xpNext.textContent = LEVEL_UP_XP_BASE * this.level;
+                
+                ui.petSvgContainer.className = '';
+                ui.petBodyColor.setAttribute('fill', COLOR_MAP['blue-500']);
+                ui.petDeadVisual.classList.add('hidden');
+                ui.petSvgContainer.classList.remove('hidden');
+                
+                if (this.isDead) {
+                    ui.petSvgContainer.classList.add('hidden');
+                    ui.petDeadVisual.classList.remove('hidden');
+                    Object.values(ui.buttons).forEach(btn => btn.disabled = true);
+                } else if (this.is_sick) {
+                    ui.petSvgContainer.className = 'animate-sick-wobble';
+                    ui.petBodyColor.setAttribute('fill', COLOR_MAP['green-500']);
+                } else if (this.isRefusing) {
+                    ui.petSvgContainer.className = 'animate-hungry-shake';
+                    ui.petBodyColor.setAttribute('fill', COLOR_MAP['orange-500']);
+                } else if (this.currentHP < 50) {
+                    ui.petSvgContainer.className = 'animate-hurt-flash';
+                    ui.petBodyColor.setAttribute('fill', COLOR_MAP['red-500']);
+                } else if (this.hunger < 30) {
+                    ui.petSvgContainer.className = 'animate-hungry-shake';
+                    ui.petBodyColor.setAttribute('fill', COLOR_MAP['orange-500']);
+                } else if (this.energy < 20) {
+                    ui.petSvgContainer.className = 'animate-tired-sway';
+                    ui.petBodyColor.setAttribute('fill', COLOR_MAP['gray-500']);
+                } else if (this.happiness < 30) {
+                    ui.petSvgContainer.className = 'animate-sad-droop';
+                    ui.petBodyColor.setAttribute('fill', COLOR_MAP['gray-500']);
+                } else {
+                    ui.petSvgContainer.className = 'animate-idle-walk';
+                    ui.petBodyColor.setAttribute('fill', COLOR_MAP['blue-500']);
+                }
+                if (!this.isDead) {
+                    Object.values(ui.buttons).forEach(btn => btn.disabled = false);
+                }
+            }
+            saveToLocalStorage() { 
+                try { localStorage.setItem(SAVE_KEY, JSON.stringify(this)); } catch (e) { console.error("Error saving game:", e); }
+            }
+            static loadFromLocalStorage() {
+                try {
+                    const savedData = localStorage.getItem(SAVE_KEY);
+                    if (savedData) return Tomi.fromData(JSON.parse(savedData));
+                } catch (e) { console.error("Error loading saved game:", e); }
+                return null;
+            }
+        }
+
+        // --- Enemy Class ---
+        class Enemy {
+            constructor(level) {
+                const types = [
+                    { name: 'Grumpy Slime', emoji: '👿', baseHp: 30, move: { name: 'Slap', power: 5, type: 'attack' } },
+                    { name: 'Angry Squirrel', emoji: '🐿️', baseHp: 20, move: { name: 'Nut Toss', power: 8, type: 'attack' } },
+                ];
+                const type = types[Math.floor(Math.random() * types.length)];
+                this.name = type.name; this.emoji = type.emoji; this.level = level;
+                this.maxHP = type.baseHp + (level * 5); this.currentHP = this.maxHP;
+                const movePower = type.move.power + (level - 1);
+                this.moves = [{ ...type.move, power: movePower }];
+            }
+            takeDamage(amount) { this.currentHP = Math.max(0, this.currentHP - amount); }
+            getMove() { return this.moves[0]; }
+        }
+
+        // --- Battle Functions ---
+        function checkRandomBattle() {
+            if (pet.isDead || pet.isInBattle) return;
+            // NEW: Re-enabled the battle chance logic
+            if (Math.random() < BATTLE_CHANCE) {
+                setTimeout(startBattle, 500); // Start battle after a short delay
+            }
+        }
+        function startBattle() {
+            closeMenu();
+            pet.isInBattle = true;
+            enemy = new Enemy(pet.level);
+            ui.battle.log.textContent = `A wild ${enemy.name} appears!`;
+            ui.battle.enemyName.textContent = enemy.name; ui.battle.enemyVisual.textContent = enemy.emoji;
+            ui.battle.playerName.textContent = pet.name;
+            ui.battle.playerVisual.textContent = pet.is_sick ? '🤢' : (pet.energy < 20 ? '😴' : '❤️');
+            updateBattleUI();
+            populateBattleMoves();
+            ui.gameContainer.classList.add('hidden');
+            ui.battle.container.classList.remove('hidden');
+        }
+        function endBattle(isFleeing) {
+            if (enemy === null) return;
+            pet.isInBattle = false;
+            if (isFleeing) { pet.logMessage(`You fled from the ${enemy.name}.`); } 
+            else {
+                pet.logMessage(`You defeated the ${enemy.name}!`);
+                pet.experience += BATTLE_XP_REWARD;
+                pet.logMessage(`Gained ${BATTLE_XP_REWARD} XP!`);
+            }
+            enemy = null;
+            ui.battle.container.classList.add('hidden');
+            ui.gameContainer.classList.remove('hidden');
+            pet.update_display();
+            pet.checkLevelUp();
+        }
+        function updateBattleUI() {
+            ui.battle.enemyHpBar.max = enemy.maxHP; ui.battle.enemyHpBar.value = enemy.currentHP;
+            ui.battle.enemyHpValue.textContent = `${Math.floor(enemy.currentHP)}/${enemy.maxHP}`;
+            ui.battle.enemyHpBar.style.setProperty('--progress-color', COLOR_MAP['red-500']);
+            ui.battle.playerHpBar.max = pet.maxHP; ui.battle.playerHpBar.value = pet.currentHP;
+            ui.battle.playerHpValue.textContent = `${Math.floor(pet.currentHP)}/${pet.maxHP}`;
+            ui.battle.playerHpBar.style.setProperty('--progress-color', COLOR_MAP['red-500']);
+        }
+        function populateBattleMoves() {
+            ui.battle.movesContainer.innerHTML = '';
+            pet.moves.forEach(move => {
+                const button = document.createElement('button');
+                button.textContent = `${move.name} (${move.power})`;
+                const moveType = move.type === 'heal' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600';
+                button.className = `p-3 text-white rounded-lg font-medium shadow transition ${moveType}`;
+                button.onclick = () => { playerTurn(move); };
+                ui.battle.movesContainer.appendChild(button);
+            });
+        }
+        function playerTurn(move) {
+            ui.battle.movesContainer.innerHTML = '<p class="text-center text-gray-500 col-span-2">...</p>';
+            let logMsg = '';
+            if (move.type === 'heal') {
+                pet.currentHP = Math.min(pet.maxHP, pet.currentHP + move.power);
+                logMsg = `${pet.name} used ${move.name} and healed ${move.power} HP!`;
+            } else {
+                enemy.takeDamage(move.power);
+                logMsg = `${pet.name} used ${move.name} for ${move.power} damage!`;
+            }
+            ui.battle.log.textContent = logMsg;
+            updateBattleUI();
+            if (enemy.currentHP <= 0) { setTimeout(() => endBattle(false), 1500); return; }
+            setTimeout(enemyTurn, 1500);
+        }
+        function enemyTurn() {
+            const move = enemy.getMove();
+            pet.currentHP = Math.max(0, pet.currentHP - move.power);
+            ui.battle.log.textContent = `${enemy.name} used ${move.name} for ${move.power} damage!`;
+            updateBattleUI();
+            if (pet.currentHP <= 0) {
+                pet.currentHP = 1; pet.logMessage("You were defeated!");
+                setTimeout(() => endBattle(true), 1500); return;
+            }
+            populateBattleMoves();
+        }
+
+        // --- Menu Functions ---
+        function populateIconBar() {
+            ui.iconBar.innerHTML = '';
+            ui.icons = [];
+            MENU_ACTIONS.forEach(action => {
+                const iconDiv = document.createElement('div');
+                iconDiv.className = 'p-1 text-gray-600';
+                iconDiv.innerHTML = MENU_ICONS[action] || '?';
+                ui.iconBar.appendChild(iconDiv);
+                ui.icons.push(iconDiv);
+            });
+        }
+        function updateIconHighlight() {
+            ui.icons.forEach((icon, index) => {
+                icon.classList.toggle('icon-selected', index === selectedIconIndex);
+                icon.classList.toggle('text-blue-600', index === selectedIconIndex);
+            });
+        }
+        function closeMenu() {
+            menuActive = false;
+            ui.iconBar.classList.add('hidden');
+            selectedIconIndex = 0;
+            updateIconHighlight();
+        }
+        function updateSubMenuHighlight(menu) {
+            if (menu === 'reset') {
+                ui.confirmModal.yesBtn.classList.toggle('confirm-selected', subMenuIndex === 0);
+                ui.confirmModal.noBtn.classList.toggle('confirm-selected', subMenuIndex === 1);
+            } else if (menu === 'feed') {
+                ui.feedModal.foodBtn.classList.toggle('button-selected', subMenuIndex === 0);
+                ui.feedModal.snackBtn.classList.toggle('button-selected', subMenuIndex === 1);
+            } else if (menu === 'game') {
+                ui.gameModal.higherBtn.classList.toggle('button-selected', subMenuIndex === 0);
+                ui.gameModal.lowerBtn.classList.toggle('button-selected', subMenuIndex === 1);
+            } else if (menu === 'movelearn') {
+                // Highlight the selected move to forget
+                ui.moveLearnModal.moveElements.forEach((el, index) => {
+                    el.classList.toggle('move-selected', index === subMenuIndex);
+                });
+                // Highlight the "Keep New Move" option
+                ui.moveLearnModal.newMoveOption.classList.toggle('move-selected', subMenuIndex === 4); // 4 is the index for the new move
+            }
+        }
+
+        // NEW: Move Learn Modal Functions
+        function openMoveLearnModal(newMove) {
+            submenuActive = 'movelearn';
+            subMenuIndex = 0; // Default to forgetting the first move
+            
+            ui.moveLearnModal.newMoveName.textContent = newMove.name;
+            ui.moveLearnModal.newMoveName2.textContent = newMove.name;
+            
+            // Populate the list of old moves
+            const moveList = ui.moveLearnModal.moveList;
+            moveList.innerHTML = '';
+            ui.moveLearnModal.moveElements = []; // Clear array
+            
+            pet.moves.forEach((move, index) => {
+                const moveEl = document.createElement('div');
+                moveEl.className = 'p-3 border-2 border-gray-200 rounded-lg cursor-pointer';
+                moveEl.innerHTML = `<h3 class="font-bold">Forget ${move.name}</h3><p class="text-xs text-gray-500">Power: ${move.power}, Type: ${move.type}</p>`;
+                moveEl.onclick = () => {
+                    // Click listener
+                    if (submenuActive !== 'movelearn') return;
+                    pet.replaceMove(index, newMove);
+                    closeMoveLearnModal();
+                };
+                moveList.appendChild(moveEl);
+                ui.moveLearnModal.moveElements.push(moveEl);
+            });
+
+            // Add click listener for the "Keep New Move" option (which means don't learn it)
+            ui.moveLearnModal.newMoveOption.onclick = () => {
+                if (submenuActive !== 'movelearn') return;
+                pet.logMessage(`Decided not to learn ${newMove.name}.`);
+                closeMoveLearnModal();
+            };
+            
+            updateSubMenuHighlight('movelearn');
+            ui.moveLearnModal.container.classList.remove('hidden');
+        }
+
+        function closeMoveLearnModal() {
+            submenuActive = null;
+            pendingNewMove = null;
+            ui.moveLearnModal.container.classList.add('hidden');
+            closeMenu(); // Also close main menu
+        }
+
+        // --- Game Initialization ---
+        function initGame() {
+            pet = Tomi.loadFromLocalStorage();
+            if (!pet) {
+                pet = new Tomi("Tomi");
+                pet.logMessage("Welcome! A new Tomi is born!");
+            } else {
+                pet.logMessage(`Welcome back to ${pet.name}!`);
+            }
+            populateIconBar();
+            pet.update_state();
+            pet.update_display();
+            
+            setInterval(() => { pet.update_state(); pet.update_display(); }, 1000);
+            setInterval(() => { pet.saveToLocalStorage(); }, 5000);
+        }
+
+        // --- Event Listeners (Advanced) ---
+        function setupEventListeners() {
+            
+            // --- 3-Button Controls ---
+            ui.buttons.move.addEventListener('click', () => {
+                if (pet.isDead || pet.isInBattle) return;
+                
+                if (submenuActive === 'reset') {
+                    subMenuIndex = 1 - subMenuIndex;
+                    updateSubMenuHighlight('reset');
+                } else if (submenuActive === 'feed') {
+                    subMenuIndex = 1 - subMenuIndex;
+                    updateSubMenuHighlight('feed');
+                } else if (submenuActive === 'game') {
+                    if (pet.inMiniGame) {
+                        subMenuIndex = 1 - subMenuIndex;
+                        updateSubMenuHighlight('game');
+                    }
+                } else if (submenuActive === 'movelearn') {
+                    subMenuIndex = (subMenuIndex + 1) % 5; // 4 old moves + 1 new move option
+                    updateSubMenuHighlight('movelearn');
+                }
+                // Handle main menu navigation
+                else if (menuActive) {
+                    selectedIconIndex = (selectedIconIndex + 1) % ui.icons.length;
+                    updateIconHighlight();
+                } else {
+                    menuActive = true;
+                    ui.iconBar.classList.remove('hidden');
+                    updateIconHighlight();
+                }
+            });
+
+            ui.buttons.select.addEventListener('click', () => {
+                if (pet.isDead || pet.isInBattle) return;
+                
+                if (submenuActive === 'reset') {
+                    if (subMenuIndex === 0) { // Yes
+                        localStorage.removeItem(SAVE_KEY);
+                        location.reload();
+                    } else { // No
+                        submenuActive = null;
+                        ui.confirmModal.container.classList.add('hidden');
+                        ui.statusModal.container.classList.remove('hidden');
+                    }
+                } else if (submenuActive === 'feed') {
+                    if (subMenuIndex === 0) pet.feed_food();
+                    else pet.feed_snack();
+                    submenuActive = null;
+                    ui.feedModal.container.classList.add('hidden');
+                    closeMenu();
+                } else if (submenuActive === 'game') {
+                    if (pet.inMiniGame) {
+                        const guess = (subMenuIndex === 0) ? 'higher' : 'lower';
+                        pet.makeGuess(guess);
+                    }
+                } else if (submenuActive === 'movelearn') {
+                    if (subMenuIndex < 4) { // Forgetting an old move
+                        pet.replaceMove(subMenuIndex, pendingNewMove);
+                    } else { // Keeping the new move (i.e., not learning it)
+                        pet.logMessage(`Decided not to learn ${pendingNewMove.name}.`);
+                    }
+                    closeMoveLearnModal();
+                }
+                // Handle main menu selection
+                else if (menuActive) {
+                    const action = MENU_ACTIONS[selectedIconIndex];
+                    
+                    switch(action) {
+                        case 'feed':
+                            submenuActive = 'feed';
+                            subMenuIndex = 0;
+                            updateSubMenuHighlight('feed');
+                            ui.feedModal.container.classList.remove('hidden');
+                            break;
+                        case 'play':
+                            if (pet.startMiniGame()) {
+                                submenuActive = 'game';
+                                subMenuIndex = 0;
+                                updateSubMenuHighlight('game');
+                                ui.gameModal.container.classList.remove('hidden');
+                            } else {
+                                closeMenu();
+                            }
+                            break;
+                        case 'sleep': pet.sleep(); closeMenu(); break;
+                        case 'status': pet.check_status(); break;
+                        case 'medicine': pet.administer_medicine(); closeMenu(); break;
+                        case 'heal': pet.administer_heal_med(); closeMenu(); break;
+                        case 'discipline': pet.discipline(); closeMenu(); break;
+                    }
+                }
+                pet.update_display();
+            });
+
+            ui.buttons.back.addEventListener('click', () => {
+                if (pet.isDead || pet.isInBattle) return;
+
+                if (pet.inMiniGame) {
+                    pet.inMiniGame = false;
+                    pet.logMessage("Quit the mini-game.");
+                }
+
+                if (submenuActive === 'movelearn') {
+                    // Backing out of move learn means you don't learn the move
+                    pet.logMessage(`Decided not to learn ${pendingNewMove.name}.`);
+                    closeMoveLearnModal();
+                } else if (submenuActive) {
+                    submenuActive = null;
+                    ui.feedModal.container.classList.add('hidden');
+                    ui.gameModal.container.classList.add('hidden');
+                    ui.confirmModal.container.classList.add('hidden');
+                } else if (menuActive) {
+                    closeMenu();
+                }
+            });
+
+            // --- Battle Button Listener ---
+            ui.battle.fleeBtn.addEventListener('click', () => { endBattle(true); });
+
+            // --- Modal Button Listeners ---
+            ui.statusModal.closeBtn.addEventListener('click', () => {
+                ui.statusModal.container.classList.add('hidden');
+                closeMenu();
+            });
+            
+            ui.statusModal.resetBtn.addEventListener('click', () => {
+                submenuActive = 'reset';
+                subMenuIndex = 1;
+                updateSubMenuHighlight('reset');
+                ui.statusModal.container.classList.add('hidden');
+                ui.confirmModal.container.classList.remove('hidden');
+            });
+            
+            ui.feedModal.foodBtn.addEventListener('click', () => {
+                if (submenuActive !== 'feed') return;
+                pet.feed_food();
+                submenuActive = null;
+                ui.feedModal.container.classList.add('hidden');
+                closeMenu();
+                pet.update_display();
+            });
+            
+            ui.feedModal.snackBtn.addEventListener('click', () => {
+                if (submenuActive !== 'feed') return;
+                pet.feed_snack();
+                submenuActive = null;
+                ui.feedModal.container.classList.add('hidden');
+                closeMenu();
+                pet.update_display();
+            });
+            
+            ui.gameModal.higherBtn.addEventListener('click', () => {
+                if (submenuActive !== 'game' || !pet.inMiniGame) return;
+                pet.makeGuess('higher');
+            });
+            
+            ui.gameModal.lowerBtn.addEventListener('click', () => {
+                if (submenuActive !== 'game' || !pet.inMiniGame) return;
+                pet.makeGuess('lower');
+            });
+            
+            ui.confirmModal.yesBtn.addEventListener('click', () => {
+                if (submenuActive !== 'reset') return;
+                localStorage.removeItem(SAVE_KEY);
+                location.reload();
+            });
+            
+            ui.confirmModal.noBtn.addEventListener('click', () => {
+                if (submenuActive !== 'reset') return;
+                submenuActive = null;
+                ui.confirmModal.container.classList.add('hidden');
+                ui.statusModal.container.classList.remove('hidden');
+            });
+        }
+
+        // --- Start the game when the page loads ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initGame();
+            setupEventListeners();
+        });
+    </script>
+    <!-- END of combined JavaScript -->
+</body>
+</html>
